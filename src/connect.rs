@@ -27,7 +27,7 @@ pub(crate) mod encryption {
 
     pub async fn wrap_stream<S>(
         socket: S,
-        domain: String,
+        domain: Option<String>,
         mode: Mode,
     ) -> Result<AutoStream<S>, Error>
     where
@@ -36,9 +36,15 @@ pub(crate) mod encryption {
         match mode {
             Mode::Plain => Ok(StreamSwitcher::Plain(socket)),
             Mode::Tls => {
-                let try_connector = TlsConnector::new();
+                let mut builder = TlsConnector::builder();
+                builder.danger_accept_invalid_certs(domain.is_none());
+
+                let try_connector = builder.build();
                 let connector = try_connector.map_err(Error::Tls)?;
                 let stream = TokioTlsConnector::from(connector);
+
+                let domain = domain.unwrap_or_else(|| "".to_string());
+
                 let connected = stream.connect(&domain, socket).await;
                 match connected {
                     Err(e) => Err(Error::Tls(e)),
@@ -63,7 +69,7 @@ pub(crate) mod encryption {
 
     pub async fn wrap_stream<S>(
         socket: S,
-        _domain: String,
+        _domain: Option<String>,
         mode: Mode,
     ) -> Result<AutoStream<S>, Error>
     where
@@ -100,7 +106,9 @@ where
 {
     let request = request.into_client_request()?;
 
-    let domain = domain(&request)?;
+    // Set to None to disable SSL validation
+    // let domain = domain(&request)?;
+    let domain = None;
 
     // Make sure we check domain and mode first. URL must be valid.
     let mode = uri_mode(&request.uri())?;
