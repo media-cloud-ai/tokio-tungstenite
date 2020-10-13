@@ -37,7 +37,8 @@ pub(crate) mod encryption {
             Mode::Plain => Ok(StreamSwitcher::Plain(socket)),
             Mode::Tls => {
                 let mut builder = TlsConnector::builder();
-                builder.danger_accept_invalid_certs(domain.is_none());
+                builder.danger_accept_invalid_hostnames(true);
+                builder.use_sni(false);
 
                 let try_connector = builder.build();
                 let connector = try_connector.map_err(Error::Tls)?;
